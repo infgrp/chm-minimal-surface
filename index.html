@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>최소곡면 갤러리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #f1f4ff; --dim: #a3acd0; --line: rgba(190, 205, 255, .22); --panel: rgba(12, 14, 30, .55); }
+  html, body { margin: 0; height: 100%; background: #04050c; color: var(--ink); font-family: "Noto Sans KR", system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; outline: none; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); }
+  .info { position: fixed; left: 18px; top: 18px; width: 350px; padding: 16px 18px; font-size: 13px; line-height: 1.62; transition: opacity .3s; }
+  .info.hide { opacity: 0; pointer-events: none; }
+  .info h1 { margin: 0 0 4px; font-size: 20px; font-weight: 800;
+    background: linear-gradient(90deg, #9fe8ff, #f4e6ff, #ffc6e8, #fff1b8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .eyebrow { font-size: 11px; letter-spacing: .18em; color: var(--dim); }
+  .info p { margin: 7px 0; }
+  .f { font-family: "Cambria Math", "Times New Roman", serif; font-style: italic; color: #e6eaff; white-space: nowrap; }
+  .x { position: absolute; right: 10px; top: 10px; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line);
+    background: rgba(255,255,255,.06); color: var(--ink); cursor: pointer; }
+  #showinfo { position: fixed; left: 18px; top: 18px; padding: 8px 14px; font: 600 13px "Noto Sans KR", sans-serif; color: var(--ink); cursor: pointer; display: none; }
+  .stat { position: fixed; right: 18px; top: 18px; padding: 12px 16px; font-size: 13px; min-width: 210px; }
+  .stat .big { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+  .stat .row { display: flex; justify-content: space-between; gap: 16px; color: var(--dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .stat .row b { color: var(--ink); font-weight: 600; }
+  .ctl { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
+    padding: 10px 12px; font-size: 13px; max-width: calc(100% - 36px); box-sizing: border-box; }
+  .ctl button { font: inherit; color: var(--ink); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 10px; padding: 6px 11px; cursor: pointer; }
+  .ctl button.on { background: linear-gradient(135deg, rgba(159,232,255,.32), rgba(255,198,232,.32)); border-color: rgba(255,255,255,.5); }
+  .ctl .g button { min-width: 34px; padding: 6px 8px; }
+  .ctl label { display: flex; gap: 6px; align-items: center; color: var(--dim); }
+  .ctl input[type=range] { width: 90px; accent-color: #c9b8ff; }
+  .ctl .sep { width: 1px; height: 22px; background: var(--line); }
+  .ctl .g { display: flex; gap: 4px; align-items: center; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; color: var(--dim); letter-spacing: .2em; font-size: 13px; transition: opacity .3s; }
+  .fams { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 6px;
+    max-width: min(760px, calc(100% - 640px)); }
+  .fams button { font: 600 12.5px "Noto Sans KR", sans-serif; color: var(--dim); background: transparent; border: 0; border-radius: 10px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+  .fams button.on { color: #0d1022; background: linear-gradient(135deg, #e9f6ff, #f6e9ff); }
+  #banim.on { background: linear-gradient(135deg, rgba(255,214,140,.4), rgba(255,160,210,.35)); }
+  @media (max-width: 1250px) { .fams { top: auto; bottom: 120px; max-width: calc(100% - 36px); } }
+  @media (max-width: 860px) {
+    .info { width: auto; right: 18px; font-size: 12px; max-height: 34vh; overflow: auto; }
+    .stat { top: auto; bottom: 150px; }
+  }
+</style>
+</head>
+<body>
+<div id="loading">곡면을 적분하는 중…</div>
+
+<button id="showinfo" class="panel">ⓘ 설명</button>
+<div class="info panel" id="info">
+  <button class="x" id="closeinfo" title="설명 닫기 (H)">✕</button>
+  <div class="eyebrow" id="ieyebrow"></div>
+  <h1 id="ititle"></h1>
+  <div id="ibody"></div>
+  <p style="color:var(--dim);font-size:12px">최소곡면: 평균 곡률이 어디서나 0 — 경계를 고정한 비누막처럼 넓이가 (국소적으로) 가장 작은 곡면.</p>
+</div>
+
+<div class="fams panel" id="fams"></div>
+
+<div class="stat panel">
+  <div class="big" id="sname"></div>
+  <div id="srows"></div>
+  <div class="row"><span>삼각형</span><b id="stri">—</b></div>
+</div>
+
+<div class="ctl panel">
+  <span class="g" id="pgrp"></span>
+  <span class="g" id="thgrp"><div class="sep"></div>
+    <label>연합족 θ <input id="theta" type="range" min="0" max="90" step="1" value="0"><span id="thv" style="min-width:30px">0°</span></label>
+    <button id="banim">▶ 변형</button></span>
+  <div class="sep"></div>
+  <label id="hl">높이 <input id="hcut" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
+  <label><span id="rlab">넓이</span> <input id="rcut" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
+  <div class="sep"></div>
+  <span class="g" id="mats"></span>
+  <div class="sep"></div>
+  <button id="brot" class="on">자동 회전</button>
+  <button id="bshine" class="on">빛 흐름</button>
+  <button id="bmesh" class="on">메시 곡선</button>
+  <button id="bhud" title="설명 (H)">설명</button>
+</div>
+
+<script src="surfaces.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<script>
+/* 코스타–호프만–미스 곡면 (종수 k)
+   리만 곡면  w^(k+1) = z^k (z² − 1)
+   바이어슈트라스 자료  g = c / w,  dh = dz / (z² − 1)
+   X = Re ∫ ( ½(1/g − g), (i/2)(1/g + g), 1 ) dh
+   z 위 반평면을 쌍극 좌표 (σ, τ) 로 덮고, (위/아래 반평면) × (k+1 장) = 2(k+1) 조각을 경계에서 맞붙인다. */
+function chmBuild(k, opt = {}) {
+  const NS = opt.ns || 90, NT = opt.nt || 140, T = opt.T || 7.5;
+  // 복소수 (배열 [re, im])
+  const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+  const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+  const lg = a => [Math.log(Math.hypot(a[0], a[1])), Math.atan2(a[1], a[0])];
+  const ex = a => { const e = Math.exp(a[0]); return [e * Math.cos(a[1]), e * Math.sin(a[1])]; };
+  // 주 가지: 위·아래 반평면 각각에서 연속
+  const W = z => { const a = lg(z), b = lg([z[0] - 1, z[1]]), c = lg([z[0] + 1, z[1]]);
+    return ex([(k * a[0] + b[0] + c[0]) / (k + 1), (k * a[1] + b[1] + c[1]) / (k + 1)]); };
+  const om = j => [Math.cos(2 * Math.PI * j / (k + 1)), Math.sin(2 * Math.PI * j / (k + 1))];
+  const q = z => [z[0] * z[0] - z[1] * z[1] - 1, 2 * z[0] * z[1]];
+  // 균형 상수 c: 0 과 1 을 감싸는 고리의 주기가 0 이 되게 (|c|² = |∮ w dh| / |∮ dh/w|)
+  let A = [0, 0], B = [0, 0];
+  { const n = 8000; for (let i = 0; i < n; i++) { const t = 2 * Math.PI * (i + 0.5) / n, z = [0.5 + 0.8 * Math.cos(t), 0.8 * Math.sin(t)];
+      const dz = [-0.8 * Math.sin(t) * 2 * Math.PI / n, 0.8 * Math.cos(t) * 2 * Math.PI / n], w = W(z), qq = q(z);
+      const a = mul(div(w, qq), dz), b = mul(div([1, 0], mul(w, qq)), dz); A[0] += a[0]; A[1] += a[1]; B[0] += b[0]; B[1] += b[1]; } }
+  const cc = Math.sqrt(Math.hypot(A[0], A[1]) / Math.hypot(B[0], B[1]));
+  // 미분 형식 (조각의 가지 ω^j W)
+  const phi = (z, oj) => {
+    const w = mul(oj, W(z)), dh = div([1, 0], q(z));
+    const ig = [w[0] / cc, w[1] / cc], g = div([cc, 0], w);              // 1/g, g
+    const p1 = mul([0.5 * (ig[0] - g[0]), 0.5 * (ig[1] - g[1])], dh);
+    const p2 = mul(mul([0, 0.5], [ig[0] + g[0], ig[1] + g[1]]), dh);
+    return [p1, p2, dh, g];
+  };
+  // 격자: σ 는 0 쪽(무한 끝) 을 세제곱으로 촘촘히, τ 는 0 쪽을 세제곱으로 (끝 ±1 쪽은 τ 자체가 로그 눈금)
+  const eps = 1e-7;
+  // σ: 양 끝(0 = 무한 끝, π = 가지점 z=0 근처)을 모두 촘촘히
+  const sw = u => { const a = u * u * u * (10 - 15 * u + 6 * u * u); return a; };
+  const sg = Array.from({ length: NS + 1 }, (_, i) => Math.min(Math.PI - eps, Math.max(eps, Math.PI * sw(i / NS))));
+  const tu = Array.from({ length: NT + 1 }, (_, j) => { const v = 2 * j / NT - 1; return T * Math.sign(v) * Math.pow(Math.abs(v), 2.2); });
+  const zUp = (i, j) => { const s = sg[i], t = tu[j], d = Math.cosh(t) - Math.cos(s); return [Math.sinh(t) / d, Math.sin(s) / d]; };
+  const GL = [[-0.9061798459, 0.2369268851], [-0.5384693101, 0.4786286705], [0, 0.5688888889], [0.5384693101, 0.4786286705], [0.9061798459, 0.2369268851]];
+  const NV = (NS + 1) * (NT + 1), vid = (i, j) => i * (NT + 1) + j;
+  function piece(h, j) {
+    const oj = om(j), Z = new Array(NV);
+    for (let i = 0; i <= NS; i++) for (let jj = 0; jj <= NT; jj++) { const z = zUp(i, jj); Z[vid(i, jj)] = h > 0 ? z : [z[0], -z[1]]; }
+    // ∫ φ 를 한 선분에서: 가지점 z = 0 (특이성 z^(-k/(k+1))) 가까이는 잘게 나누고,
+    // 끝점이 거의 0 이면 z = z0 + Δz·r^(k+1) 로 바꿔 적분해 특이성을 없앤다
+    const m = k + 1;
+    const gauss = (z0, dz, sub) => {            // sub: r 거듭제곱 치환 여부
+      const r = [0, 0, 0];
+      for (const [x, wt] of GL) {
+        const u = 0.5 * (x + 1), e = sub ? Math.pow(u, m) : u, de = sub ? m * Math.pow(u, m - 1) : 1;
+        const z = [z0[0] + dz[0] * e, z0[1] + dz[1] * e], p = phi(z, oj), d = [dz[0] * de * 0.5, dz[1] * de * 0.5];
+        for (let c = 0; c < 3; c++) r[c] += wt * (p[c][0] * d[0] - p[c][1] * d[1]);
+      }
+      return r;
+    };
+    const seg = (za, zb, depth = 0) => {
+      const dz = [zb[0] - za[0], zb[1] - za[1]], L = Math.hypot(dz[0], dz[1]), da = Math.hypot(za[0], za[1]), db = Math.hypot(zb[0], zb[1]);
+      if (da < 0.01 * L) return gauss(za, dz, true);
+      if (db < 0.01 * L) { const r = gauss(zb, [-dz[0], -dz[1]], true); return [-r[0], -r[1], -r[2]]; }
+      // 원점에서 선분까지 거리
+      const t = Math.max(0, Math.min(1, -(za[0] * dz[0] + za[1] * dz[1]) / (L * L))), dm = Math.hypot(za[0] + dz[0] * t, za[1] + dz[1] * t);
+      if (dm < 1.5 * L && depth < 30) {
+        const mid = [(za[0] + zb[0]) / 2, (za[1] + zb[1]) / 2], a = seg(za, mid, depth + 1), b = seg(mid, zb, depth + 1);
+        return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+      }
+      return gauss(za, dz, false);
+    };
+    const P = new Float64Array(NV * 3), N = new Float64Array(NV * 3);
+    const i0 = Math.round(NS * 0.8), j0 = NT / 2;
+    // 기준 열(σ 가 적당한 곳)에서 τ 방향, 다시 각 줄을 σ 방향으로 누적 적분 (반평면 안에서 정칙이라 경로와 무관).
+    // 끝(무한점)으로 가는 쪽은 바깥으로만 적분하므로 거기서 생기는 오차가 안쪽으로 번지지 않는다
+    const setv = (b, from) => { const r = seg(Z[from], Z[b]); for (let c = 0; c < 3; c++) P[b * 3 + c] = P[from * 3 + c] + r[c]; };
+    for (let jj = j0 + 1; jj <= NT; jj++) setv(vid(i0, jj), vid(i0, jj - 1));
+    for (let jj = j0 - 1; jj >= 0; jj--) setv(vid(i0, jj), vid(i0, jj + 1));
+    for (let jj = 0; jj <= NT; jj++) {
+      for (let i = i0 + 1; i <= NS; i++) setv(vid(i, jj), vid(i - 1, jj));
+      for (let i = i0 - 1; i >= 0; i--) setv(vid(i, jj), vid(i + 1, jj));
+    }
+    for (let v = 0; v < NV; v++) { const g = phi(Z[v], oj)[3], gg = g[0] * g[0] + g[1] * g[1];
+      N[v * 3] = 2 * g[0] / (gg + 1); N[v * 3 + 1] = 2 * g[1] / (gg + 1); N[v * 3 + 2] = (gg - 1) / (gg + 1); }
+    return { h, j, oj, Z, P, N };
+  }
+  // 조각들을 경계에서 맞붙인다: 경계 줄 (σ≈0 또는 π) × (τ>0 또는 <0)
+  const K1 = k + 1, pcs = [];
+  for (let h of [1, -1]) for (let j = 0; j < K1; j++) pcs.push(piece(h, j));
+  const at = (h, j) => pcs.find(p => p.h === h && p.j === j);
+  const borders = [];
+  for (const iRow of [0, NS]) for (const sgn of [1, -1]) {
+    const jj = sgn > 0 ? Math.round(NT * 0.75) : Math.round(NT * 0.25), v = vid(iRow, jj);
+    for (let j = 0; j < K1; j++) {   // 위 j 와 이어지는 아래 장 찾기: w 값이 연속인 것
+      const up = at(1, j), wu = mul(up.oj, W(up.Z[v]));
+      let best = 0, bd = 1e9;
+      for (let j2 = 0; j2 < K1; j2++) { const lo = at(-1, j2), wl = mul(lo.oj, W(lo.Z[v])), d = Math.hypot(wu[0] - wl[0], wu[1] - wl[1]); if (d < bd) { bd = d; best = j2; } }
+      borders.push({ a: up, b: at(-1, best), iRow, sgn, v });
+    }
+  }
+  const done = new Set([pcs[0]]), queue = [pcs[0]];
+  while (queue.length) {
+    const p = queue.shift();
+    for (const e of borders) {
+      const [x, y] = e.a === p ? [e.a, e.b] : e.b === p ? [e.b, e.a] : [null, null];
+      if (!x || done.has(y)) continue;
+      const d = [0, 1, 2].map(c => x.P[e.v * 3 + c] - y.P[e.v * 3 + c]);
+      for (let v = 0; v < NV; v++) for (let c = 0; c < 3; c++) y.P[v * 3 + c] += d[c];
+      done.add(y); queue.push(y);
+    }
+  }
+  // 맞붙은 정도 (모든 경계에서 최대 어긋남, 원점 가까운 부분만)
+  let gap = 0;
+  for (const e of borders) for (let jj = 0; jj <= NT; jj++) {
+    const v = vid(e.iRow, jj); if ((e.sgn > 0) !== (tu[jj] > 0)) continue;
+    const r = Math.hypot(e.a.P[v * 3], e.a.P[v * 3 + 1], e.a.P[v * 3 + 2]); if (r > 6) continue;
+    gap = Math.max(gap, Math.hypot(e.a.P[v * 3] - e.b.P[v * 3], e.a.P[v * 3 + 1] - e.b.P[v * 3 + 1], e.a.P[v * 3 + 2] - e.b.P[v * 3 + 2]));
+  }
+  // 가지점 z = 0 은 모든 조각이 만나는 한 점: 특이점이라 조각마다 조금씩 다른 값을 평균으로 맞춘다
+  const v0 = vid(NS, NT / 2), avg = [0, 0, 0];
+  for (const p of pcs) for (let c = 0; c < 3; c++) avg[c] += p.P[v0 * 3 + c] / pcs.length;
+  for (const p of pcs) for (let c = 0; c < 3; c++) p.P[v0 * 3 + c] = avg[c];
+  // 가운데 정렬: 대칭축(z = 0 의 상) 을 원점으로, 높이 0 = 평면 끝 높이
+  const vInf = vid(1, NT / 2), hInf = pcs[0].P[vInf * 3 + 2];
+  for (const p of pcs) for (let v = 0; v < NV; v++) { p.P[v * 3] -= avg[0]; p.P[v * 3 + 1] -= avg[1]; p.P[v * 3 + 2] -= hInf; }
+  return { k, c: cc, NS, NT, pieces: pcs.map(p => ({ P: p.P, N: p.N, h: p.h, j: p.j })), gap, vid, zc: avg[2] - hInf, sg, tu };
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+const $ = id => document.getElementById(id);
+const Q = new URLSearchParams(location.search);
+
+/* ═════════════ 렌더러 ═════════════ */
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.05, 200);
+camera.position.set(6.4, 3.0, 8.0);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, -0.45, 0); controls.enableDamping = true; controls.dampingFactor = 0.07; controls.minDistance = 3; controls.maxDistance = 30;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.6;
+
+/* ═════════════ 환경: 어두운 스튜디오 + 색 있는 소프트박스 (유리의 번쩍임과 굴절이 여기서 온다) ═════════════ */
+function studio() {
+  const s = new THREE.Scene();
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(50, 64, 32), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false,
+    vertexShader: "varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }",
+    fragmentShader: `varying vec3 vP;
+      void main(){ vec3 d = normalize(vP); float y = d.y;
+        vec3 c = mix(vec3(.004,.004,.01), vec3(.015,.016,.035), smoothstep(-.5,.9,y));
+        float az = atan(d.z, d.x);
+        vec3 band = .5 + .5 * cos(vec3(0., 2.1, 4.2) + az * 2. + vec3(0., .4, .9));       // 방위각 따라 하늘·분홍·금빛으로 바뀌는 띠
+        c += mix(vec3(.55,.75,1.), band, .75) * exp(-pow((y - .02) / .22, 2.)) * .55;   // 비스듬한 면이 비추는 색 띠 (가장자리 빛)
+        c += vec3(.9,.95,1.) * exp(-pow((y - .02) / .03, 2.)) * .5;
+        c += vec3(.03,.10,.16) * smoothstep(.2, 1., y);
+        gl_FragColor = vec4(c, 1.); }` }));
+  s.add(sky);
+  const box = (w, h, color, k, pos, look) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide }));
+    m.position.set(...pos); m.lookAt(...look); s.add(m);
+  };
+  box(26, 7, "#ffffff", 7, [0, 30, 6], [0, 0, 0]);          // 위 넓은 흰 빛
+  box(3, 22, "#ffffff", 9, [-24, 6, 10], [0, 0, 0]);        // 왼쪽 세로 띠
+  box(3, 22, "#9fe8ff", 6, [24, 4, -6], [0, 0, 0]);         // 오른쪽 하늘색 띠
+  box(14, 3, "#ff8fd0", 5, [6, -4, -26], [0, 0, 0]);         // 뒤 분홍
+  box(10, 2.5, "#ffd27a", 5, [-14, -6, 22], [0, 0, 0]);      // 앞 아래 금빛
+  box(5, 5, "#b9a2ff", 6, [16, 20, 18], [0, 0, 0]);          // 보랏빛 네모
+  return s;
+}
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envTex = pmrem.fromScene(studio(), 0.015).texture;
+scene.environment = envTex;
+scene.background = new THREE.Color("#05060d");
+const backdrop = new THREE.Mesh(new THREE.SphereGeometry(60, 96, 48), new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false,
+  uniforms: { t: { value: 0 } },
+  vertexShader: "varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }",
+  fragmentShader: `varying vec3 vP; uniform float t;
+    float h3(vec3 p) { p = fract(p * .3183099 + vec3(.1,.2,.3)) * 17.; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float n3(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+      return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+    float fbm(vec3 p) { float a = .5, s = 0.; for (int i = 0; i < 6; i++) { s += a * n3(p); p = p * 2.03 + vec3(1.7, 9.2, 3.1); a *= .5; } return s; }
+    vec3 stars(vec3 d, float sc, float thr, float k) {
+      vec3 sp = d * sc, c = floor(sp), f = fract(sp) - .5;
+      float h = h3(c);
+      if (h < thr) return vec3(0.);
+      vec3 o = vec3(h3(c + 3.1), h3(c + 7.7), h3(c + 1.3)) - .5;
+      float r = length(f - o * .6);
+      float tw = .7 + .3 * sin(t * (1. + 3. * h) + h * 40.);
+      vec3 col = mix(vec3(.75,.85,1.), vec3(1.,.85,.7), h3(c + 5.5));
+      return col * exp(-r * r * k) * (h - thr) / (1. - thr) * tw;
+    }
+    void main(){
+      vec3 d = normalize(vP);
+      // 성운: 도메인 뒤틀기 fbm → 이온화된 기체(청·자·진홍·청록) + 뜨거운 심 + 어두운 먼지 띠
+      vec3 q = d * 2.1 + vec3(0., 0., t * .006);
+      vec3 w = vec3(fbm(q + vec3(1.7, 9.2, 3.1)), fbm(q + vec3(8.3, 2.8, 5.4)), fbm(q + vec3(4.1, 6.3, 1.2)));
+      float n = fbm(q + 1.9 * w), n2 = fbm(q * 2.2 - w * 1.3 + 7.);
+      float mask = smoothstep(-.35, .75, dot(d, normalize(vec3(.45, .25, -.85)))) * .85 + .15 * smoothstep(.2, .9, dot(d, normalize(vec3(-.7, -.3, .5))));
+      vec3 nc = mix(vec3(.08,.22,.75), vec3(.62,.10,.52), smoothstep(.35, .7, w.x));
+      nc = mix(nc, vec3(.05,.50,.55), smoothstep(.55, .78, w.y));
+      nc = mix(nc, vec3(.85,.30,.20), smoothstep(.62, .85, w.z) * .6);
+      vec3 c = vec3(.003, .004, .010);
+      c += nc * smoothstep(.38, .85, n) * .62 * mask;
+      c += vec3(1., .78, .62) * pow(smoothstep(.62, .95, n), 3.) * .45 * mask;
+      c *= 1. - .8 * smoothstep(.48, .72, n2) * smoothstep(.32, .6, n);
+      // 별: 세 겹 (작고 많은 것 ~ 크고 드문 것)
+      c += stars(d, 220., .965, 900.) * .9;
+      c += stars(d, 110., .985, 500.) * 1.4;
+      c += stars(d, 45., .993, 260.) * 2.6;
+      gl_FragColor = vec4(c, 1.); }` }));
+backdrop.renderOrder = -1; scene.add(backdrop);
+
+// 부드러운 조명 (우윳빛 유리의 흰 몸체가 보이도록)
+scene.add(new THREE.HemisphereLight("#dfe6ff", "#20142e", 0.55));
+const key = new THREE.DirectionalLight("#ffffff", 1.25); key.position.set(4, 8, 6); scene.add(key);
+const rimL = new THREE.DirectionalLight("#9fb8ff", 1.1); rimL.position.set(-6, 2, -8); scene.add(rimL);
+
+/* ═════════════ 리퀴드 글라스 ═════════════ */
+const MATS = {
+  "우윳빛 유리": { color: "#eef1fb", transmission: 0.68, roughness: 0.3, thickness: 0.9, iridescence: 0.3, dispersion: 0.5, sheen: 0.55, attenuationColor: "#ffffff", attenuationDistance: 2, line: "#ffffff", lineK: 0.55 },
+  "무지개 유리": { color: "#ffffff", transmission: 1, roughness: 0.035, thickness: 0.35, iridescence: 1, dispersion: 4, sheen: 0, attenuationColor: "#ffffff", attenuationDistance: 8, line: "#ffffff", lineK: 0.45 },
+  "맑은 유리": { color: "#ffffff", transmission: 1, roughness: 0.03, thickness: 0.3, iridescence: 0.15, dispersion: 1.5, sheen: 0, attenuationColor: "#ffffff", attenuationDistance: 10, line: "#cfe6ff", lineK: 0.5 },
+  "푸른 유리": { color: "#d8f2ff", transmission: 1, roughness: 0.05, thickness: 0.45, iridescence: 0.45, dispersion: 2.5, sheen: 0, attenuationColor: "#5fc4ff", attenuationDistance: 1.4, line: "#e8f8ff", lineK: 0.5 },
+};
+const glass = new THREE.MeshPhysicalMaterial({
+  metalness: 0, roughness: 0.3, transmission: 0.5, ior: 1.47, thickness: 0.9,
+  clearcoat: 1, clearcoatRoughness: 0.03, specularIntensity: 1, envMapIntensity: 1.0,
+  iridescence: 0.25, iridescenceIOR: 1.3, iridescenceThicknessRange: [180, 720], dispersion: 0.4,
+  sheen: 1, sheenColor: new THREE.Color("#ffffff"), sheenRoughness: 0.45,
+  side: THREE.DoubleSide, transparent: false,
+});
+// 메시 곡선: 등각 좌표 (σ, τ) 의 눈금선을 셰이더에서 가늘게 (빽빽해지는 곳은 흐리게)
+const LINE = { on: { value: 1 }, col: { value: new THREE.Color("#ffffff") }, k: { value: 0.55 }, sp: { value: new THREE.Vector2(Math.PI / 14, 0.5) }, polar: { value: 1 } };
+glass.onBeforeCompile = sh => {
+  sh.uniforms.uLineOn = LINE.on; sh.uniforms.uLineCol = LINE.col; sh.uniforms.uLineK = LINE.k; sh.uniforms.uSp = LINE.sp; sh.uniforms.uPolar = LINE.polar;
+  sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute vec2 st;\nvarying vec2 vST;")
+    .replace("#include <uv_vertex>", "#include <uv_vertex>\nvST = st;");
+  sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vST;\nuniform float uLineOn, uLineK, uPolar;\nuniform vec2 uSp;\nuniform vec3 uLineCol;")
+    .replace("#include <opaque_fragment>", `{
+      vec2 gg = vST / uSp;
+      vec2 fw = max(fwidth(gg), vec2(1e-4));
+      vec2 ln = 1.0 - clamp(abs(fract(gg - 0.5) - 0.5) / (fw * 1.1), 0.0, 1.0);
+      ln *= 1.0 - smoothstep(0.22, 0.45, fw);
+      float rz = length(vST);
+      vec2 pp = vec2(log(max(rz, 1e-6)) / 0.2, atan(vST.y, vST.x) / (3.14159265 / 12.));
+      vec2 fp = max(fwidth(pp), vec2(1e-4));
+      vec2 lp = 1.0 - clamp(abs(fract(pp - 0.5) - 0.5) / (fp * 1.1), 0.0, 1.0);
+      lp *= 1.0 - smoothstep(0.22, 0.45, fp);
+      float wf = (1.0 - smoothstep(0.45, 0.8, rz)) * uPolar;  // (코스타–호프만–미스) 평면 끝 쪽은 로그 극좌표 눈금
+      float L = mix(max(ln.x, ln.y), max(lp.x, lp.y), wf) * uLineOn;
+      outgoingLight = mix(outgoingLight, uLineCol * 1.15, L * uLineK);
+    }
+    #include <opaque_fragment>`);
+};
+glass.customProgramCacheKey = () => "chm-lines";
+function setMat(name) {
+  const m = MATS[name];
+  glass.color.set(m.color); glass.transmission = m.transmission; glass.roughness = m.roughness; glass.thickness = m.thickness;
+  glass.iridescence = m.iridescence; glass.dispersion = m.dispersion; glass.sheen = m.sheen;
+  glass.attenuationColor.set(m.attenuationColor); glass.attenuationDistance = m.attenuationDistance;
+  LINE.col.value.set(m.line); LINE.k.value = m.lineK;
+  for (const b of $("mats").children) b.classList.toggle("on", b.dataset.m === name);
+}
+for (const name of Object.keys(MATS)) { const b = document.createElement("button"); b.textContent = name; b.dataset.m = name; b.onclick = () => setMat(name); $("mats").appendChild(b); }
+
+/* ═════════════ 곡면족 ═════════════ */
+const MS = window.MinSurf;
+const CHM = {
+  name: "코스타–호프만–미스", eyebrow: "COSTA–HOFFMAN–MEEKS · EMBEDDED, GENUS k",
+  param: { label: "종수", values: [1, 2, 3, 4, 5, 6], def: 1 }, twoSize: true,
+  rows: (k, th, S) => [["종수 (손잡이)", k], ["끝", "현수면 2 · 평면 1"], ["균형 상수 c", S ? S.c.toFixed(5) : "—"]],
+  info: `<p>평균 곡률이 0이면서 자기 자신과 만나지 않는(매장) 완비 곡면 가운데 손잡이를 가진 것. 1982년 코스타가 종수 1을 찾았고,
+     호프만과 미스가 매장임을 증명하고 모든 종수 <span class="f">k</span>로 넓혔습니다.</p>
+     <p>위아래 두 끝은 현수면처럼, 가운데 끝은 평면처럼 퍼지고, 그 사이에 손잡이 <span class="f">k</span>개, 수직 대칭면 <span class="f">k + 1</span>개.</p>
+     <p>리만 곡면 <span class="f">w<sup>k+1</sup> = z<sup>k</sup>(z² − 1)</span>, <span class="f">g = c / w</span>, <span class="f">dh = dz / (z² − 1)</span>.
+     상수 <span class="f">c</span>는 닫힌 고리의 주기가 0이 되도록 정합니다. 메시 곡선은 등각 좌표(쌍극 좌표)입니다.</p>`,
+};
+const FAMS = { chm: CHM, ...MS.FAM };
+const ORDER = ["chm", "cathel", "enneper", "knoid", "richmond", "scherk2", "scherk1", "tpms"];
+const st0 = Q.get("fam") && FAMS[Q.get("fam")] ? Q.get("fam") : "chm";
+const cur = { fam: st0, p: null, h: 1, r: 1, th: +(Q.get("th") || 0) * Math.PI / 180 };
+const CACHE = {};
+let surf = null, lastS = null;
+
+// 곡면 자료 → { pieces:[{P,N,ST,off,tri?}], N1, N2, vid, clip, fitR, longEdge, sp, polar }
+function surfaceData() {
+  const F = FAMS[cur.fam];
+  if (cur.fam === "chm") {
+    const k = cur.p, key = "chm" + k;
+    const S = CACHE[key] || (CACHE[key] = chmBuild(k, k <= 3 ? { ns: 96, nt: 150 } : { ns: 80, nt: 124 }));
+    if (!S.ST) { S.ST = new Float64Array((S.NS + 1) * (S.NT + 1) * 2);
+      for (let i = 0; i <= S.NS; i++) for (let j = 0; j <= S.NT; j++) { const v = S.vid(i, j); S.ST[v * 2] = S.sg[i]; S.ST[v * 2 + 1] = S.tu[j]; } }
+    const H = (2.25 + 0.05 * k) * cur.h, R = (2.1 + 0.62 * k) * cur.r;
+    lastS = S;
+    return { pieces: S.pieces.map(pc => ({ P: pc.P, N: pc.N, ST: S.ST, off: [0, 0, 0] })), N1: S.NS, N2: S.NT, vid: S.vid,
+      clip: (x, y, z) => Math.max(Math.abs(z) / H, Math.hypot(x, y) / R) - 1, fitR: Math.max(H, R * 0.62), sp: [Math.PI / 14, 0.5], polar: 1 };
+  }
+  const key = cur.fam + "|" + cur.p + "|" + cur.r;
+  const B = CACHE[key] || (CACHE[key] = F.build(cur.p, cur.r));
+  lastS = null;
+  if (B.kind === "tris") {
+    const n = B.pos.length / 3;
+    return { pieces: [{ P: Float64Array.from(B.pos), N: Float64Array.from(B.nrm), ST: Float64Array.from(B.st), off: [0, 0, 0], tri: n / 3 }],
+      clip: B.clip, fitR: B.fitR, sp: B.sp, polar: 0 };
+  }
+  const G = B.G, th = B.theta ?? (F.theta ? cur.th : 0);
+  const P = G.atTheta(th, B._P || (B._P = new Float64Array(G.NV * 3)));
+  // 가운데: 지정한 고리들의 평균
+  const c = [0, 0, 0]; let cn = 0;
+  for (const i of B.ctr || [0]) for (let j = 0; j < G.N2; j++) { const v = G.vid(i, j); for (let q = 0; q < 3; q++) c[q] += P[v * 3 + q]; cn++; }
+  for (let v = 0; v < G.NV; v++) for (let q = 0; q < 3; q++) P[v * 3 + q] -= c[q] / cn;
+  return { pieces: (B.offs || [[0, 0, 0]]).map(off => ({ P, N: G.N, ST: G.ST, off })), N1: G.N1, N2: G.N2, vid: G.vid,
+    clip: B.clip, fitR: B.fitR, longEdge: B.longEdge, sp: B.sp, polar: 0 };
+}
+
+/* ═════════════ 곡면 → 삼각형 (공간에서 매끈하게 잘라 내고, 주기 이음매를 건너는 긴 삼각형은 버린다) ═════════════ */
+function meshFrom(D) {
+  const sc = 2.15 / D.fitR, pos = [], nrm = [], st = [], LE = D.longEdge || Infinity;
+  for (const pc of D.pieces) {
+    const { P, N, ST, off } = pc, nv = P.length / 3, Fv = new Float64Array(nv);
+    for (let v = 0; v < nv; v++) {
+      const x = P[v * 3] + off[0], y = P[v * 3 + 1] + off[1], z = P[v * 3 + 2] + off[2];
+      Fv[v] = !(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) ? 1e9 : D.clip ? D.clip(x, y, z) : -1;
+    }
+    const push = (a, b, t) => {
+      const x = P[a * 3] + (P[b * 3] - P[a * 3]) * t + off[0], y = P[a * 3 + 1] + (P[b * 3 + 1] - P[a * 3 + 1]) * t + off[1], z = P[a * 3 + 2] + (P[b * 3 + 2] - P[a * 3 + 2]) * t + off[2];
+      let nx = N[a * 3] + (N[b * 3] - N[a * 3]) * t, ny = N[a * 3 + 1] + (N[b * 3 + 1] - N[a * 3 + 1]) * t, nz = N[a * 3 + 2] + (N[b * 3 + 2] - N[a * 3 + 2]) * t;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      pos.push(x * sc, z * sc, y * sc); nrm.push(nx / l, nz / l, ny / l);
+      st.push(ST[a * 2] + (ST[b * 2] - ST[a * 2]) * t, ST[a * 2 + 1] + (ST[b * 2 + 1] - ST[a * 2 + 1]) * t);
+    };
+    const d2 = (a, b) => (P[a * 3] - P[b * 3]) ** 2 + (P[a * 3 + 1] - P[b * 3 + 1]) ** 2 + (P[a * 3 + 2] - P[b * 3 + 2]) ** 2;
+    const tri = (a, b, c) => {
+      const fa = Fv[a], fb = Fv[b], fc = Fv[c];
+      if (fa > 0 && fb > 0 && fc > 0) return;
+      if (LE < Infinity && Math.max(d2(a, b), d2(b, c), d2(c, a)) > LE * LE) return;
+      if (fa <= 0 && fb <= 0 && fc <= 0) { push(a, a, 0); push(b, b, 0); push(c, c, 0); return; }
+      const vs = [a, b, c], fs = [fa, fb, fc], poly = [];
+      for (let i = 0; i < 3; i++) {
+        const p = vs[i], q = vs[(i + 1) % 3], fp = fs[i], fq = fs[(i + 1) % 3];
+        if (fp <= 0) poly.push([p, p, 0]);
+        if ((fp <= 0) !== (fq <= 0)) poly.push([p, q, fp / (fp - fq)]);
+      }
+      for (let i = 1; i + 1 < poly.length; i++) for (const e of [poly[0], poly[i], poly[i + 1]]) push(e[0], e[1], e[2]);
+    };
+    if (pc.tri) for (let t = 0; t < pc.tri; t++) tri(3 * t, 3 * t + 1, 3 * t + 2);
+    else for (let i = 0; i < D.N1; i++) for (let j = 0; j < D.N2; j++) {
+      const a = D.vid(i, j), b = D.vid(i + 1, j), c = D.vid(i + 1, j + 1), d = D.vid(i, j + 1);
+      tri(a, b, c); tri(a, c, d);
+    }
+  }
+  // 삼각형 감김 방향을 법선과 맞춘다 (켤레 조각·사면체 행진법의 감김이 제각각이라 양면 그리기에서 법선이 뒤집히지 않게)
+  for (let t = 0; t < pos.length; t += 9) {
+    const ux = pos[t + 3] - pos[t], uy = pos[t + 4] - pos[t + 1], uz = pos[t + 5] - pos[t + 2];
+    const vx = pos[t + 6] - pos[t], vy = pos[t + 7] - pos[t + 1], vz = pos[t + 8] - pos[t + 2];
+    const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+    const nx = nrm[t] + nrm[t + 3] + nrm[t + 6], ny = nrm[t + 1] + nrm[t + 4] + nrm[t + 7], nz = nrm[t + 2] + nrm[t + 5] + nrm[t + 8];
+    if (cx * nx + cy * ny + cz * nz < 0) {
+      for (const arr of [pos, nrm]) for (let c = 0; c < 3; c++) { const x = arr[t + 3 + c]; arr[t + 3 + c] = arr[t + 6 + c]; arr[t + 6 + c] = x; }
+      const u = t / 9 * 6; for (let c = 0; c < 2; c++) { const x = st[u + 2 + c]; st[u + 2 + c] = st[u + 4 + c]; st[u + 4 + c] = x; }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute("st", new THREE.Float32BufferAttribute(st, 2));
+  g.computeBoundingSphere();
+  return { g, tris: pos.length / 9 };
+}
+
+function refresh() {
+  const F = FAMS[cur.fam];
+  const D = surfaceData(), { g, tris } = meshFrom(D);
+  if (surf) { surf.geometry.dispose(); surf.geometry = g; } else {
+    surf = new THREE.Mesh(g, Q.has("debug") ? new THREE.MeshNormalMaterial({ side: THREE.DoubleSide }) : glass); scene.add(surf);
+  }
+  LINE.sp.value.set(D.sp[0], D.sp[1]); LINE.polar.value = D.polar;
+  $("srows").innerHTML = F.rows(cur.p, cur.th, lastS).map(([a, b]) => `<div class="row"><span>${a}</span><b>${b}</b></div>`).join("");
+  $("stri").textContent = tris.toLocaleString("ko-KR");
+  return tris;
+}
+function show() {
+  $("loading").style.opacity = 1;
+  requestAnimationFrame(() => setTimeout(() => {
+    const t0 = performance.now(), tris = refresh();
+    $("loading").style.opacity = 0;
+    console.log("built", cur.fam, cur.p, tris, Math.round(performance.now() - t0) + "ms");
+  }, 20));
+}
+function selectFam(name, p) {
+  const F = FAMS[name]; cur.fam = name; cur.p = p ?? F.param?.def ?? 0;
+  for (const b of $("fams").children) b.classList.toggle("on", b.dataset.f === name);
+  $("ieyebrow").textContent = F.eyebrow; $("ititle").textContent = F.name + (name === "chm" ? " 곡면" : ""); $("ibody").innerHTML = F.info;
+  $("sname").textContent = F.name;
+  const pg = $("pgrp"); pg.innerHTML = "";
+  if (F.param) {
+    const l = document.createElement("span"); l.style.cssText = "color:var(--dim);margin-right:4px"; l.textContent = F.param.label; pg.appendChild(l);
+    F.param.values.forEach((v, i) => { const b = document.createElement("button"); b.textContent = F.param.names ? F.param.names[i] : v; b.dataset.v = i;
+      b.onclick = () => { cur.p = v; markParam(); show(); }; pg.appendChild(b); });
+    markParam();
+  }
+  $("thgrp").style.display = F.theta ? "flex" : "none";
+  $("banim").style.display = F.anim ? "" : "none";
+  if (!F.theta) { cur.th = 0; } else { cur.th = (F.thetaDefault ?? 0) + (Q.has("th") && name === st0 ? +Q.get("th") * Math.PI / 180 : 0); }
+  $("theta").value = Math.round(cur.th * 180 / Math.PI); $("thv").textContent = $("theta").value + "°";
+  anim = false; $("banim").classList.remove("on"); $("banim").textContent = "▶ 변형";
+  $("hl").style.display = F.twoSize ? "" : "none"; $("rlab").textContent = F.twoSize ? "넓이" : "크기";
+  show();
+}
+function markParam() { const F = FAMS[cur.fam]; for (const b of $("pgrp").querySelectorAll("button")) b.classList.toggle("on", F.param.values[+b.dataset.v] === cur.p); }
+for (const name of ORDER) { const b = document.createElement("button"); b.textContent = FAMS[name].name; b.dataset.f = name; b.onclick = () => selectFam(name); $("fams").appendChild(b); }
+let reT = 0, anim = false;
+const rebuild = () => { clearTimeout(reT); reT = setTimeout(show, 120); };
+$("hcut").oninput = e => { cur.h = +e.target.value; rebuild(); };
+$("rcut").oninput = e => { cur.r = +e.target.value; rebuild(); };
+$("theta").oninput = e => { cur.th = +e.target.value * Math.PI / 180; $("thv").textContent = e.target.value + "°"; if (cur.fam === "cathel") refresh(); else rebuild(); };
+$("banim").onclick = () => { anim = !anim; $("banim").classList.toggle("on", anim); $("banim").textContent = anim ? "⏸ 변형" : "▶ 변형"; };
+let animDir = 1;
+function animStep(dt) {   // 현수면 ↔ 나선면 왕복 (끝에서 잠깐 머문다)
+  if (!anim) return;
+  let d = cur.th * 180 / Math.PI + animDir * dt * 22;
+  if (d >= 92) { d = 90; animDir = -1; } else if (d <= -2) { d = 0; animDir = 1; }
+  cur.th = Math.min(90, Math.max(0, d)) * Math.PI / 180;
+  $("theta").value = Math.round(cur.th * 180 / Math.PI); $("thv").textContent = $("theta").value + "°";
+  refresh();
+}
+
+/* ═════════════ 후처리: 번쩍이는 하이라이트만 살짝 번지게 ═════════════ */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.3, 0.45, 0.97);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ═════════════ 조작 ═════════════ */
+let shine = true;
+const tog = (id, f) => { const b = $(id); b.onclick = () => { b.classList.toggle("on"); f(b.classList.contains("on")); }; };
+tog("brot", v => controls.autoRotate = v);
+tog("bshine", v => shine = v);
+tog("bmesh", v => LINE.on.value = v ? 1 : 0);
+const setInfo = v => { $("info").classList.toggle("hide", !v); $("showinfo").style.display = v ? "none" : "block"; $("bhud").classList.toggle("on", v); };
+$("closeinfo").onclick = () => setInfo(false); $("showinfo").onclick = () => setInfo(true);
+$("bhud").onclick = () => setInfo($("info").classList.contains("hide"));
+addEventListener("keydown", e => {
+  if (e.key === "h" || e.key === "H") $("bhud").click();
+  const F = FAMS[cur.fam];
+  if (F.param && e.key >= "1" && e.key <= "9" && +e.key <= F.param.values.length) { cur.p = F.param.values[+e.key - 1]; markParam(); show(); }
+});
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+if (Q.get("hud") === "0") setInfo(false); else $("bhud").classList.add("on");
+setMat(Q.get("mat") && MATS[Q.get("mat")] ? Q.get("mat") : "우윳빛 유리");
+for (const k of ["iridescence", "envMapIntensity", "thickness", "dispersion", "roughness", "ior"]) if (Q.has(k)) glass[k] = +Q.get(k);
+if (Q.has("still")) { controls.autoRotate = false; $("brot").classList.remove("on"); }
+selectFam(cur.fam, Q.has("p") ? (isNaN(+Q.get("p")) ? Q.get("p") : +Q.get("p")) : undefined);
+
+/* ═════════════ 그리기 ═════════════ */
+const clock = new THREE.Clock();
+let envA = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  if (shine) envA += dt * 0.25;                       // 환경 빛이 천천히 돌며 표면 위로 번쩍임이 흐른다
+  scene.environmentRotation.set(0.25 * Math.sin(envA * 0.7), envA, 0);
+  backdrop.material.uniforms.t.value = t;
+  animStep(dt);
+  controls.update();
+  composer.render();
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
